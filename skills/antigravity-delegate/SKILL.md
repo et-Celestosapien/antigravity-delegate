@@ -22,6 +22,8 @@ Keep with Claude: architecture and design decisions; ambiguous specs (resolve wi
 1. `agy --version`. If `-p` ever exits 0 with empty output and no stderr, the CLI is signed out: ask the user to run `agy` once.
 2. **Quota.** `agy -p "/usage"` (client command, instant, no model call). Output is tab-separated lines `group  metric  pct  reset-time-UTC`:
    `Gemini Models | Weekly / Five Hour Limit Remaining`, `Claude and GPT models | Weekly / Five Hour ...`, `Gemini 4 Argon | Weekly Limit`.
+   **Always show it to the user at the start** as a table, and keep the numbers as the START snapshot for the closing report (Step 4):
+   `| Pool | Weekly left | Weekly resets | 5-hour left | 5-hour resets |` (Argon has only a weekly row; give reset times in the user's local time if known, else UTC). Warn on any pool under 10%. If `/usage` fails or prints nothing, write "quota unavailable" in the table; never skip the table silently.
 3. **Pick the model:**
 
 | Situation | Choice |
@@ -31,7 +33,7 @@ Keep with Claude: architecture and design decisions; ambiguous specs (resolve wi
 | Gemini pool low but Claude/GPT pool >= 20% | `claude-sonnet-5-5-high` |
 | Everything low | do it in Claude, or tell the user the reset time from `/usage` |
 
-Re-run `/usage` between waves of packets. State the quota and chosen model to the user in one line. Per-packet cost is not reported; measured once: a small Flash-high packet (2 files, 78 s) cost about 1% of the Gemini five-hour limit and 0% of the weekly one. Re-measure for big packets.
+Re-run `/usage` between waves of packets and show a one-line update. State the chosen model, and why, next to the start table. Per-packet cost is not reported; measured once: a small Flash-high packet (2 files, 78 s) cost about 1% of the Gemini five-hour limit and 0% of the weekly one. Re-measure for big packets.
 4. **Project profile** (read once per project from AGENTS.md / CLAUDE.md / README): test command and interpreter (e.g. a venv python), env files and DB setup, hard invariants / "never" lists, commit conventions. Put the relevant lines in every packet; the worker does not know them.
 
 ## Permission reality (verified; design around it)
@@ -78,6 +80,11 @@ Exit 0 means nothing (timeouts also return exit 0 with partial output).
 4. Read the whole diff. Check: frozen tests untouched and not weakened, no unrelated edits, project invariants (e.g. no float money, parameterized queries), security-sensitive paths line by line, no secrets or `.agy-report.md` committed.
 5. Good: stage explicit paths, commit as Claude with the repo's convention. Bad: fix-up round (Step 2) or revert the worktree.
 6. Merge, push and PRs only when the user says so.
+
+## Step 4: closing quota report (always the last thing you show)
+Run `agy -p "/usage"` again and print, per pool, START -> END and the difference, plus which model ran how many packets:
+`| Pool | Weekly start -> end | 5-hour start -> end | Used |` and one line such as "gemini-3.8-flash-high: 3 packets".
+Percentages are whole numbers, so a small packet may show 0-1% change; say so rather than implying precision. Show this report even when nothing was delegated or the run was abandoned. If any pool is under 10%, add when it resets.
 
 ## Cleanup
 First remove a `.venv` junction with `cmd /c rmdir <worktree>\.venv` (NEVER `Remove-Item -Recurse` or a recursive delete on it: that can wipe the real venv). Then `git worktree remove <path> --force` and `git branch -d <packet>` after merge/discard; delete logs. Remove any `.agy-report.md`.

@@ -5,7 +5,7 @@ A [Claude Code](https://claude.com/claude-code) skill that lets Claude act as ar
 > Unofficial. Not affiliated with or endorsed by Google or Anthropic. "Antigravity" is Google's product name. Verified on **agy 1.4.6, Windows + PowerShell, 2026-10-23** on a single account; macOS/Linux use the same flags but are untested. Behaviour may change with newer `agy` releases.
 
 ## What it does
-- **Checks quota first.** `agy -p "/usage"` is instant and costs no model call; the skill reads your weekly / five-hour limits and picks a model (default `gemini-3.8-flash-high`, Argon only for hard packets when its weekly quota allows, Claude models as fallback).
+- **Checks quota first.** `agy -p "/usage"` is instant and costs no model call; the skill shows your weekly / five-hour limits as a table at the start and a start-to-end report when it finishes, and picks a model (default `gemini-3.8-flash-high`, Argon only for hard packets when its weekly quota allows, Claude models as fallback).
 - **Always passes `--model`.** Without it `agy` silently uses the scarcest default model.
 - **One git worktree per packet**, up to three in parallel with disjoint file lists.
 - **Packet template** with explicit allowed/forbidden files, tests first, acceptance commands, project rules copied in.
