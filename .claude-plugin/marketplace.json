@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "antigravity-delegate",
+  "description": "Delegate implementation packets from Claude Code to the Antigravity CLI (agy), then review and commit.",
+  "owner": {
+    "name": "et-Celestosapien",
+    "url": "https://github.com/et-Celestosapien"
+  },
+  "plugins": [
+    {
+      "name": "antigravity-delegate",
+      "description": "Quota-aware, worktree-isolated delegation of coding packets to the Antigravity CLI, with Claude as architect and reviewer.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

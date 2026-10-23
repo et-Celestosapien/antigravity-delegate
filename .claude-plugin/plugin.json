@@ -1,0 +1,10 @@
+{
+  "name": "antigravity-delegate",
+  "version": "0.1.0",
+  "description": "Claude plans and reviews; the Antigravity CLI (agy) implements well-specified packets in isolated git worktrees, quota-aware and permission-aware.",
+  "author": {
+    "name": "et-Celestosapien",
+    "url": "https://github.com/et-Celestosapien"
+  },
+  "license": "MIT"
+}
