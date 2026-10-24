@@ -1,7 +1,7 @@
 {
   "name": "antigravity-delegate",
-  "version": "0.2.0",
-  "description": "Claude plans and reviews; the Antigravity CLI (agy) implements well-specified packets in isolated git worktrees, quota-aware and permission-aware.",
+  "version": "0.3.0",
+  "description": "Claude plans and reviews; the Antigravity CLI (agy) implements coding packets in isolated git worktrees and digests large PDFs into verified, cited notes, quota-aware and permission-aware.",
   "author": {
     "name": "et-Celestosapien",
     "url": "https://github.com/et-Celestosapien"

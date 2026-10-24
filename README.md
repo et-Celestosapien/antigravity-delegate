@@ -11,12 +11,22 @@ A [Claude Code](https://claude.com/claude-code) skill that lets Claude act as ar
 - **Packet template** with explicit allowed/forbidden files, tests first, acceptance commands, project rules copied in.
 - **Review gate.** The exit code means nothing; Claude checks stderr, the diff against the allowed-file list, re-runs the tests and reads every line before committing. It never merges or pushes without you.
 
+## Second skill: `antigravity-digest` (reading, summarising, research)
+For source material instead of code, e.g. a folder of guidelines and drug manuals for a presentation. Gemini Flash does the token-heavy reading; Claude finds the pages, checks the numbers and writes the deliverable.
+1. **Claude locates** the pages in the PDF text layer (`scripts/find-pages.ps1`, free).
+2. **Claude slices** big files with `qpdf` into a small PDF (a 90 MB, 1,022-page compendium overflowed the worker; a 2-page slice worked).
+3. **Flash reads the page images** into a fixed schema, verbatim, with page citations. Text extracts are not used for tables or doses: they lost a micro sign, a `≥` and a column order.
+4. **Claude verifies**: `scripts/check-numbers.ps1` flags numbers in the digest that are not in the source and numbers dropped from it; the user glances at flowcharts and key doses.
+5. **Claude writes** the slides or summary from the verified digests only.
+
+It includes a **clinical-guideline mode** (NCCN/ASCO/ESTRO/ASTRO/NRG, drug monographs): dose rows copied as printed, evidence categories kept, conflicting sources listed side by side, flowcharts one page per packet. Document finding and downloading stay with Claude (`agy`'s web search returned bad URLs). Everything the worker reads goes to Google, so keep patient identifiers out. Tested on an NCCN Bladder guideline (141 pages), the BC Cancer drug manual (504 pages) and a Royal Surrey protocol slice. Untested: scanned PDFs, Word/PowerPoint/Excel inputs, the ASCO file, the other drug manual, flowcharts verified by eye.
+
 ## Install
 ```text
 /plugin marketplace add et-Celestosapien/antigravity-delegate
 /plugin install antigravity-delegate@antigravity-delegate
 ```
-(Plugin layout follows other Claude Code marketplaces; these commands are untested here.) Or copy `skills/antigravity-delegate/` into `~/.claude/skills/`.
+(Plugin layout follows other Claude Code marketplaces; these commands are untested here.) Or copy the folders under `skills/` (`antigravity-delegate`, `antigravity-digest`) into `~/.claude/skills/`.
 
 Requirements: Claude Code, Antigravity CLI `agy` signed in (run `agy` once), git.
 
@@ -29,7 +39,7 @@ Requirements: Claude Code, Antigravity CLI `agy` signed in (run `agy` once), git
 | `agy -p "<prompt>" --mode accept-edits --model <id> --print-timeout 30m --log-file x.log 2>&1` | headless worker; writes only inside the current folder |
 | `-c` / `--conversation <id>` | continue the latest / a specific conversation |
 | `--effort low\|medium\|high\|xhigh\|max` | reasoning effort (not with a model id that already ends in `-high`) |
-| `--add-dir <folder>` | add a folder to the workspace for this run (repeatable) |
+| `--add-dir <folder>` | add a folder to the workspace for this run (repeatable); needed to read files outside the working folder |
 | `--output-format text\|json\|stream-json` | print-mode format (json shapes untested) |
 
 Gotchas: call `agy` directly (PowerShell `Start-Process` splits the prompt on spaces); denials go to **stderr** only, so use `2>&1`; exit code 0 does not mean success; omitting `--model` burns your Argon quota; `--mode auto` was unavailable on the tested account.
@@ -57,7 +67,7 @@ For venv projects, give each worktree the interpreter with a junction so the rel
 
 ## Safety notes
 - Allowing `pytest`/`cargo`/`npm` runs worker-written code as you, with whatever is in the worktree (e.g. a copied `.env`). That lifts the write confinement; it is acceptable only because every diff is reviewed before it is committed. Use dev databases only and keep production secrets out of worktrees.
-- Reads outside the worktree are not restricted by `agy`.
+- Reads outside the working folder are denied in headless mode (verified on a PDF) unless you add the folder with `--add-dir` for that run. A folder you add is readable in full, so keep secrets out of it.
 - The skill changes your agy config only through the installer, only after you agree, and always with a backup.
 - `--dangerously-skip-permissions` (approve every tool call) is not part of the setup. A worktree does not contain a shell: it shares `.git` with your real repo, can read env files and use the network, and none of that shows up in the diff. It is untested here. If you want a fully autonomous run anyway, ask for it per packet and the skill will warn you first.
 
