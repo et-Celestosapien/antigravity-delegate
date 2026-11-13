@@ -2,7 +2,7 @@
 
 Claude is the orchestrator. Workers are `agy` processes; every task keeps the review gate from `SKILL.md` Step 3. Run the Route step (`routing.md`) for each task first; only DELEGATE and SPLIT tasks get a worker.
 
-**Swarm lane: disabled until spike S1 passes** (see "Swarm lane" below).
+**Swarm lane: unsupported** (spike S1 failed at tier 0 on 2026-11-13; see "Spike S1 result"). Use parallel workers (below) instead.
 
 ## 1. Plan before launching anything
 Write the task list in the reply (one row per task):
@@ -46,8 +46,10 @@ Four tiny tasks on a throwaway repo: a and b independent, c depends on both, d e
 - With `/usage` unreadable the cap is 1 worker; the plan above would then run a, b, c, d one at a time in dependency order, with the same review gate.
 - These tasks were 5-8 changed lines, below the Route step's KEEP threshold; they were used on purpose to test the mechanics. Real tasks go through `routing.md` first.
 
-## Swarm lane (disabled until spike S1 passes)
+## Swarm lane (unsupported for now; kept for later)
 `agy` can run a native swarm: a Gemini coordinator that spawns worker agents (`/swarm <task>`, preview, labelled quota heavy). Use it only when all of these hold: the subtask is big and self-contained (roughly 300+ changed lines or 6+ files in one bounded folder); acceptance tests exist or Claude writes them first; Gemini five-hour is 60% or more and weekly 40% or more; the owner accepted a quota-heavy run. Launch from an isolated worktree or clone: `agy -p "/swarm <goal>" --mode accept-edits --model <model> --print-timeout 20m --log-file <log> 2>&1`. A swarm is one task in the plan and never runs alongside other workers. Claude reviews the whole diff with the usual gate, reading the tests first.
 
-## Spike S1 result
-Not run yet.
+## Spike S1 result (2026-11-13, agy 1.5.8): not supported at tier 0
+Setup: throwaway repo, goal of three independent modules with frozen tests, run from an isolated clone with no remote and a sentinel file outside it: `agy -p "/swarm <goal>" --mode accept-edits --model gemini-3.8-flash-high --print-timeout 20m`.
+Result: the `/swarm` command expanded and ran for about 30 seconds, then the coordinator's first `Bash` tool call was denied in headless mode (`no output produced ... "command" permission`) and the run ended after 0.6 minutes. Exit code 0, no file changed, tests still 0 of 3, sentinel intact, nothing written elsewhere, Gemini quota unchanged (five-hour 97% before and after).
+Why the lane stays off: the denied command is not named in the log, so a tier-1 exact rule cannot be prepared in advance, and tier 2 (open shell for a whole swarm of agents) needs the owner's per-project yes and was not tried. If the owner wants to try it later: clone the project as in the tier-2 recipe, run the same command with no `--mode` flag, and check the clone, the sentinel and the quota afterwards; mark the lane supported only if the diff is correct and the quota change is about 15% of the five-hour limit or less.

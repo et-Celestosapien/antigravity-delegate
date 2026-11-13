@@ -43,5 +43,5 @@ Rough sizing, order of magnitude only: writing or reading a changed line costs a
 | 4 | Fix a race in payment retries, 20 lines, sensitive, hard to test | 0, ratio -2, no check -1, sensitive -1 = -4 | KEEP |
 | 5 | "Make the dashboard better" | ambiguity 2 | KEEP, ask the owner what better means |
 | 6 | Three independent features in separate folders, about 100 lines each, tests available | each: +1, +1, +1, +1 = 4 | SPLIT into 3 tasks, DELEGATE each (Hydrogen-high) |
-| 7 | One 400-line self-contained module, tests writable, Gemini five-hour 70%, weekly 55% | +2, +1, +1, +1 = 5 | SWARM if the lane is supported (big, tested, quota ok); otherwise DELEGATE to Hydrogen-high |
+| 7 | One 400-line self-contained module, tests writable, Gemini five-hour 70%, weekly 55% | +2, +1, +1, +1 = 5 | SWARM if the lane is supported (big, tested, quota ok); today the lane is unsupported (spike S1 failed), so DELEGATE to Hydrogen-high |
 | 8 | Auth-table migration, 80 lines, Claude writes the acceptance tests, touches shared state | diff +1, ratio 0, tests +1, sensitive 0 (tests written), not independent 0 = 2 | DELEGATE only in the background; otherwise KEEP |
