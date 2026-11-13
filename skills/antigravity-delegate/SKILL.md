@@ -40,7 +40,7 @@ Re-run `/usage` between waves of packets and show a one-line update. State the c
 4. **Project profile** (read once per project from AGENTS.md / CLAUDE.md / README): test command and interpreter (e.g. a venv python), env files and DB setup, hard invariants / "never" lists, commit conventions. Put the relevant lines in every packet; the worker does not know them.
 
 ## Permission reality (verified; design around it)
-Use `--mode accept-edits`. Then:
+The default launch is `--mode accept-edits` (tier 0, see "Worker permission tiers" below). Then:
 - File writes succeed **only inside the working folder** (outside is denied). Reads outside it are denied too in headless mode (verified 2026-10-24 on a PDF: "no output produced ... `read_file` permission"); add the folder for that launch with `--add-dir <folder>`. Once a folder is added the worker can read all of it, so keep secrets out of any folder you add.
 - **Shell commands are denied** unless the whole command string exactly matches a rule in `~/.gemini/config/config.json` -> `userSettings.globalPermissionGrants.allow`. Matching is exact: `command(...)` rules with `*` do NOT work (tested `pytest tests/*`), so `pytest tests/x.py` or an extra flag is denied, and every useful flag combination needs its own rule. This skill ships a wide list in `rules/allowlist.json` (git read-only, directory inspection, Python venv Windows/Unix and no-venv incl. ruff/mypy/black/flake8/Django, Rust, Node/pnpm/yarn/bun, Go, .NET, JVM, Ruby/PHP/make, R, plus an opt-in `install` group) and `scripts/install-rules.ps1` merges it into the user's config after they agree (Step 0, item 1b). Verified working (2026-10-23): venv pytest, `cargo check`, `npm test`, `npm run lint`, and from the later expansion `git diff --name-only` (installed by the script, then run by agy). The other rules added in the later expansion use the same format but each one is untested until first used; if one is denied, say so rather than assume. Bare `node --test` is denied despite a matching rule (use `npm test`). R, pnpm and yarn rules are untested.
 - **Extra directories:** `--add-dir <path>` (repeatable) on a launch makes that folder part of the workspace for that run only. Verified 2026-10-23: with `--mode accept-edits --add-dir <sibling>` a file write into the sibling succeeded (without the flag it is denied) while a shell command was still denied. Use it per launch, never as a standing grant (see "Scope requests").
@@ -48,6 +48,19 @@ Use `--mode accept-edits`. Then:
 - So the loop is: the worker edits files and may run the **allow-listed** whole-suite checks; **Claude always re-runs the tests itself** and sends failures back. For a command not on the list, propose the exact `command(<full command>)` rule to the user; add it only by the same ask-then-yes route as the installer, never silently.
 - Venv projects: the rule path is relative to the worktree, so give each worktree the interpreter via a junction: `cmd /c mklink /J .venv <main-checkout>\.venv` (verified). Projects without a venv use the plain `python`/`py`/`pytest`/`cargo`/`npm` rules.
 - **Allowing test runs lifts the write confinement:** pytest/cargo/npm execute worker-written code as the user with whatever is in the worktree (e.g. a copied `.env`). Acceptable only because Claude reviews every diff before anything is committed; point workers only at dev databases and never put production secrets in a worktree.
+
+### Worker permission tiers (verified 2026-11-13, agy 1.5.8)
+| Tier | Launch | Use when |
+|---|---|---|
+| 0 (default) | `--mode accept-edits` plus the installed allowlist | everything, unless the packet needs more |
+| 1 (scoped) | tier 0 plus `--settings <file>` holding `{"permissions":{"allow":["command(<exact string>)"]}}` for the exact commands the packet needs, plus `--add-dir <folder>` for extra folders | the packet needs one or two commands that are not in the allowlist |
+| 2 (trusted) | no `--mode` flag, in an isolated clone | only after the owner says yes for this project |
+
+- **Tier 1** (verified): an exact rule in `--settings` let `node --version` run; the unlisted `node -e ...` was denied. Rules are exact: `*`, `:*` and ` *` wildcards are all denied. Write the file outside the repo, delete it after the run. It adds to the global allowlist for that run only and never edits the user's config.
+- **Tier 2** (verified): on the owner's account (Turbo preset), a launch with no `--mode` ran a file-creating command and a web request with no rule at all, and `--mode auto` is unavailable. So the account is open and the worktree is not a sandbox. Containment recipe, checked with plain git: `git clone --no-hardlinks <repo> <clone-outside-the-repo>`, then `git -C <clone> remote remove origin`. Inside that clone `git push`, `git branch -D main` and `git reset` cannot reach the real repo; bring the work back with `git fetch <clone> <branch>:agy/<name>`, never over `main`. This stops accidents, not a worker that deliberately uses the original repo's path. Keep production secrets out of the clone.
+- **Where the choice is stored:** `%USERPROFILE%\.agy-delegate\config.json`, `{"projectTiers": {"<absolute project path>": 2}}`; a missing file or entry means tier 0. Ask the owner once per project and write the file only after an explicit yes. "Tier 2 for this run only" is allowed and writes nothing.
+- If Claude Code's own safety classifier refuses to launch a tier-2 worker, stop and tell the owner; do not work around it. `--dangerously-skip-permissions` stays unused.
+- The Step 3 review is identical at every tier.
 
 ## Step 1: write the packet (precision is the whole job)
 Save as `<repo>/docs/handoff/<packet>.md` (or any tracked-or-ignored path inside the worktree). Template:
