@@ -1,6 +1,6 @@
 {
   "name": "antigravity-delegate",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Claude plans and reviews; the Antigravity CLI (agy) implements coding packets in isolated git worktrees, with a scored judgement of whether offloading pays off, Flash/Hydrogen routing, parallel orchestration, and verified PDF digests, quota-aware and permission-aware.",
   "author": {
     "name": "et-Celestosapien",

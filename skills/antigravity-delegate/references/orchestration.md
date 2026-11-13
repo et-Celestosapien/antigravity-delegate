@@ -2,7 +2,7 @@
 
 Claude is the orchestrator. Workers are `agy` processes; every task keeps the review gate from `SKILL.md` Step 3. Run the Route step (`routing.md`) for each task first; only DELEGATE and SPLIT tasks get a worker.
 
-**Swarm lane: unsupported** (spike S1 failed at tier 0 on 2026-11-13; see "Spike S1 result"). Use parallel workers (below) instead.
+**Swarm lane: supported at tier 2 only** (spike S1 failed at tier 0 and passed at tier 2 on 2026-11-13; see "Spike S1 result"). It needs the owner's per-project tier-2 yes; otherwise use parallel workers (below).
 
 ## 1. Plan before launching anything
 Write the task list in the reply (one row per task):
@@ -46,10 +46,13 @@ Four tiny tasks on a throwaway repo: a and b independent, c depends on both, d e
 - With `/usage` unreadable the cap is 1 worker; the plan above would then run a, b, c, d one at a time in dependency order, with the same review gate.
 - These tasks were 5-8 changed lines, below the Route step's KEEP threshold; they were used on purpose to test the mechanics. Real tasks go through `routing.md` first.
 
-## Swarm lane (unsupported for now; kept for later)
-`agy` can run a native swarm: a Gemini coordinator that spawns worker agents (`/swarm <task>`, preview, labelled quota heavy). Use it only when all of these hold: the subtask is big and self-contained (roughly 300+ changed lines or 6+ files in one bounded folder); acceptance tests exist or Claude writes them first; Gemini five-hour is 60% or more and weekly 40% or more; the owner accepted a quota-heavy run. Launch from an isolated worktree or clone: `agy -p "/swarm <goal>" --mode accept-edits --model <model> --print-timeout 20m --log-file <log> 2>&1`. A swarm is one task in the plan and never runs alongside other workers. Claude reviews the whole diff with the usual gate, reading the tests first.
+## Swarm lane (tier 2 only)
+`agy` can run a native swarm: a Gemini coordinator that spawns worker agents (`/swarm <task>`, preview, labelled quota heavy). Use it only when all of these hold: the subtask is big and self-contained (roughly 300+ changed lines or 6+ files in one bounded folder); acceptance tests exist or Claude writes them first; Gemini five-hour is 60% or more and weekly 40% or more; the owner accepted a quota-heavy run and said yes to tier 2 for this project (at tier 0 the swarm's first shell call is denied). Launch from an isolated clone (tier-2 recipe in `SKILL.md`) with no `--mode` flag: `agy -p "/swarm <goal>" --model <model> --print-timeout 20m --log-file <log> 2>&1`. A swarm is one task in the plan and never runs alongside other workers. Claude reviews the whole diff with the usual gate, reading the tests first.
 
-## Spike S1 result (2026-11-13, agy 1.5.8): not supported at tier 0
+## Spike S1 result (2026-11-13, agy 1.5.8): denied at tier 0, passes at tier 2
 Setup: throwaway repo, goal of three independent modules with frozen tests, run from an isolated clone with no remote and a sentinel file outside it: `agy -p "/swarm <goal>" --mode accept-edits --model gemini-3.8-flash-high --print-timeout 20m`.
 Result: the `/swarm` command expanded and ran for about 30 seconds, then the coordinator's first `Bash` tool call was denied in headless mode (`no output produced ... "command" permission`) and the run ended after 0.6 minutes. Exit code 0, no file changed, tests still 0 of 3, sentinel intact, nothing written elsewhere, Gemini quota unchanged (five-hour 97% before and after).
-Why the lane stays off: the denied command is not named in the log, so a tier-1 exact rule cannot be prepared in advance, and tier 2 (open shell for a whole swarm of agents) needs the owner's per-project yes and was not tried. If the owner wants to try it later: clone the project as in the tier-2 recipe, run the same command with no `--mode` flag, and check the clone, the sentinel and the quota afterwards; mark the lane supported only if the diff is correct and the quota change is about 15% of the five-hour limit or less.
+The denied command is not named in the log, so a tier-1 exact rule cannot be prepared in advance.
+
+**Tier 2 retry (the owner approved it).** Same goal, fresh isolated clone with no remote, no `--mode` flag. The coordinator started one worker per module plus a verifier and a monitor. It ran 4.1 minutes, created the three source files, and the tests passed 3 of 3 when Claude ran them. A sentinel file outside the clone, the scratch source repo and the owner's real repo were all unchanged, and nothing was written elsewhere. Gemini quota: five-hour 97% -> 96%, weekly 68% -> 67%; Claude/GPT and Argon did not move. That meets the pass criteria (correct diff, about 15% of the five-hour limit or less), so the lane is supported, at tier 2 only.
+Caveats: one run on a toy task. A single Flash worker handled comparable tiny tasks in about 0.5 minutes (dry run), so here the swarm was roughly 8 times slower and cost a point on each Gemini limit for a task that did not need it. Whether it pays off on a big self-contained task is unmeasured; use it only when the eligibility conditions above hold.
