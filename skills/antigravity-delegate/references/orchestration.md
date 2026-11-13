@@ -23,13 +23,13 @@ A wave is every task whose dependencies are already merged. The cap comes from t
 | under 30% | 1 |
 | unreadable (command fails, "quota unavailable", no such row) | 1, and say so in the verdict line |
 
-The Argon and Claude/GPT-pool rules in `SKILL.md` (Step 0) still apply per task.
+Also lower the cap by the Gemini **weekly** row, which the digest skill shares: 40% or more changes nothing, 15-39% means at most 2, under 15% means 1. The Argon and Claude/GPT-pool rules in `SKILL.md` (Step 0) still apply per task.
 
 ## 3. Isolation per task
 Tier 0 and 1: `git worktree add ..\<repo>-<id> -b agy/<goal>-<id> <integration branch>`. Tier 2: an isolated clone as described under permission tiers in `SKILL.md`. One folder per task, never shared.
 
 ## 4. Review gate, then merge
-When a task finishes: stderr/permission check, `git status` and diff against the allowed-file list, Claude runs the tests itself, reads the whole diff. Accepted tasks merge into the integration branch `agy/<goal>` (cut from `main`) with `git merge --no-ff`, in dependency order; then run the full suite on that branch. A merge conflict stops the wave: Claude resolves it or re-plans (it counts as a fix round). Merging into `main` and pushing happen only when the owner says so.
+When a task finishes: stderr/permission check, `git status` and a diff against the branch the task was cut from (`agy/<goal>`, never `main`, which would show earlier merges) checked against the allowed-file list, Claude runs the tests itself, reads the whole diff. Accepted tasks merge into the integration branch `agy/<goal>` (cut from `main`) with `git merge --no-ff`, in dependency order; then run the full suite on that branch. A merge conflict stops the wave: Claude resolves it or re-plans (it counts as a fix round). Merging into `main` and pushing happen only when the owner says so.
 
 ## 5. Failures
 Two fix rounds per task, then Claude takes the task over. If a task other tasks depend on fails, do not launch its dependents; re-plan. A denied permission is handled with "Scope requests" in `SKILL.md`, never by widening permissions on your own.

@@ -25,7 +25,7 @@ Break-even in words: delegate when (writing the packet + reading the diff + expe
 | Hard: cross-cutting, subtle invariants, or Hydrogen-high already failed once | `gemini-4-hydrogen-xhigh`; `gemini-4-argon-high` only if its weekly quota is 25% or more, one packet at a time |
 | Gemini pools low, Claude/GPT pool 20% or more | `claude-sonnet-5-5-high` through `agy` |
 
-Hydrogen draws from the Gemini Models pool (inferred; see `benchmarks.md`), so the Gemini quota gate (weekly and five-hour both 10% or more) applies to it. Always pass `--model`. Evidence is one run per cell on small packets, so treat the table as the starting point and let the ledger correct it.
+Hydrogen's quota pool is unknown (see `benchmarks.md`). Apply the Gemini quota gate (weekly and five-hour both 10% or more) to it, and after Hydrogen runs read every `/usage` row, not only Gemini, so a different pool cannot drain unseen. Always pass `--model`. Evidence is one run per cell on small packets, so treat the table as the starting point and let the ledger correct it.
 
 ## 3. Use the ledger
 `scripts/ledger.ps1 -Summary` prints one line per model (tasks, first-pass %, average fix rounds, minutes, quota points). With 5 or more rows for a model, read it before scoring. Adjustment rules (provisional, my calls): first-pass under 60% for a model means require a score of 4 or more for it, or step up one model; first-pass 90% or more over 10+ rows means the 1-2 band may DELEGATE even without parallelism. Say when you applied an adjustment.

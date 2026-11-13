@@ -41,6 +41,17 @@ function Invoke-WithRetry([scriptblock]$Action) {
   }
 }
 
+# A hand-edited or old-schema row can be valid JSON with the wrong field types; skip it instead of aborting the summary.
+function Test-Row($r) {
+  if ($r.model -isnot [string] -or -not $r.model) { return $false }
+  if ($r.firstPass -isnot [bool]) { return $false }
+  foreach ($f in 'fixRounds', 'minutes', 'quota5h') {
+    $v = $r.$f
+    if ($v -isnot [int] -and $v -isnot [long] -and $v -isnot [double] -and $v -isnot [decimal]) { return $false }
+  }
+  return $true
+}
+
 if ($Add) {
   $dir = Split-Path $path -Parent
   if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
@@ -63,7 +74,7 @@ $skipped = 0
 foreach ($line in $allLines) {
   if (-not $line.Trim()) { continue }
   try { $r = $line | ConvertFrom-Json } catch { $skipped++; continue }
-  if ($null -eq $r.model -or $null -eq $r.firstPass) { $skipped++; continue }
+  if (-not (Test-Row $r)) { $skipped++; continue }
   $rows += $r
 }
 if (-not $rows) { 'No ledger entries.' }

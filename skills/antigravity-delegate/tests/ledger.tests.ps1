@@ -79,6 +79,17 @@ Invoke-Add $l5 'm' -Note ('x' * 300)
 $noteRow = if (Test-Path $l5) { (Get-Content $l5 | Select-Object -First 1) | ConvertFrom-Json } else { $null }
 Assert-That ($noteRow -and $noteRow.note.Length -eq 200) 'note_truncated_to_200'
 
+# summary_skips_bad_field_types: a valid-JSON row with a non-numeric, missing or string-boolean field must not abort the summary
+$l6 = Join-Path $tmp 'types.jsonl'
+Invoke-Add $l6 'good' -FirstPass -Fix 1 -Min 2 -Q5 1
+Add-Content $l6 '{"model":"bad","firstPass":true,"fixRounds":"abc","minutes":1,"quota5h":0}'
+Add-Content $l6 '{"model":"bad","firstPass":true}'
+Add-Content $l6 '{"model":"bad","firstPass":"false","fixRounds":0,"minutes":1,"quota5h":0}'
+$sumTypes = Get-Summary $l6
+Assert-That ($sumTypes -match 'good tasks=1 firstpass=100%') 'summary_skips_bad_field_types (good row missing from summary)'
+Assert-That ($sumTypes -notmatch 'bad tasks') 'summary_skips_bad_field_types (a bad row was counted)'
+Assert-That ($sumTypes -match 'skipped 3') 'summary_skips_bad_field_types (expected skipped 3)'
+
 Remove-Item $tmp -Recurse -Force
 if ($failed.Count) { "FAILED: " + ($failed -join '; '); exit 1 }
 'ALL PASSED'

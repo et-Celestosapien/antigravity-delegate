@@ -9,7 +9,7 @@ Verified on agy 1.5.8, Windows + PowerShell, 2026-11-13 (items marked 2026-10-23
 
 ## Defaults (edit here, everything below follows them)
 - **Mechanical work:** `gemini-3.8-flash-high` (high effort on Flash is cheap in practice; change it if your plan differs).
-- **Substantive coding:** `gemini-4-hydrogen-high` (`gemini-4-hydrogen-medium` for modest tasks). Benchmark B1 (`references/benchmarks.md`): same first-pass results as Flash, 2-4x faster on logic and refactor packets, closer to the spec on the refactor. It draws from the Gemini Models pool (inferred). One run per cell, so provisional; the ledger corrects it.
+- **Substantive coding:** `gemini-4-hydrogen-high` (`gemini-4-hydrogen-medium` for modest tasks). Benchmark B1 (`references/benchmarks.md`): same first-pass results as Flash, about 4x faster on the logic and refactor packets (single runs), closer to the spec on the refactor. Its quota pool is unknown (no run moved any row measurably): after Hydrogen runs, check every `/usage` row, not just Gemini. One run per cell, so provisional; the ledger corrects it.
 - **Hard packets:** `gemini-4-hydrogen-xhigh`; `gemini-4-argon-high` (about Opus 5.5 level, small weekly limit) only when quota allows (table below).
 - **Fallbacks:** `claude-sonnet-5-5-high` / `claude-opus-5-5-high` (Claude/GPT pool). `agy models` lists all ids; listed does not mean you have credits.
 - **ALWAYS pass `--model`.** Omitting it runs Gemini 4 Argon (Medium) and silently burns the scarcest quota. Do not add `--effort` to a model id that already ends in `-high`: agy rejects the pair ("conflicts with --effort"). Use `--effort` only with an id that has no effort suffix.
@@ -33,8 +33,9 @@ Keep with Claude: architecture and design decisions; ambiguous specs (resolve wi
 | Situation | Choice |
 |---|---|
 | Gemini pool weekly >= 10% and five-hour >= 10% | `gemini-3.8-flash-high` for mechanical packets, `gemini-4-hydrogen-high` for substantive coding |
-| Packet is hard (cross-cutting, subtle invariants, Hydrogen-high already failed once) | `gemini-4-hydrogen-xhigh`; `gemini-4-argon-high` only if Argon weekly >= 25%, one packet at a time |
+| Packet is hard (cross-cutting, subtle invariants, Hydrogen-high already failed once) | `gemini-4-hydrogen-xhigh` (Gemini weekly and five-hour both >= 10%); `gemini-4-argon-high` only if Argon weekly >= 25%, one packet at a time |
 | Gemini pool low but Claude/GPT pool >= 20% | `claude-sonnet-5-5-high` |
+| `/usage` unreadable | one packet at a time on Flash, no Argon, and say quota is unavailable |
 | Everything low | do it in Claude, or tell the user the reset time from `/usage` |
 
 Re-run `/usage` between waves of packets and show a one-line update. State the chosen model, and why, next to the start table. Per-packet cost is not reported; measured once: a small Flash-high packet (2 files, 78 s) cost about 1% of the Gemini five-hour limit and 0% of the weekly one. Re-measure for big packets.
@@ -61,9 +62,9 @@ The default launch is `--mode accept-edits` (tier 0, see "Worker permission tier
 | 1 (scoped) | tier 0 plus `--settings <file>` holding `{"permissions":{"allow":["command(<exact string>)"]}}` for the exact commands the packet needs, plus `--add-dir <folder>` for extra folders | the packet needs one or two commands that are not in the allowlist |
 | 2 (trusted) | no `--mode` flag, in an isolated clone | only after the owner says yes for this project |
 
-- **Tier 1** (verified): an exact rule in `--settings` let `node --version` run; the unlisted `node -e ...` was denied. Rules are exact: `*`, `:*` and ` *` wildcards are all denied. Write the file outside the repo, delete it after the run. It adds to the global allowlist for that run only and never edits the user's config.
-- **Tier 2** (verified): on the owner's account (Turbo preset), a launch with no `--mode` ran a file-creating command and a web request with no rule at all, and `--mode auto` is unavailable. So the account is open and the worktree is not a sandbox. Containment recipe, checked with plain git: `git clone --no-hardlinks <repo> <clone-outside-the-repo>`, then `git -C <clone> remote remove origin`. Inside that clone `git push`, `git branch -D main` and `git reset` cannot reach the real repo; bring the work back with `git fetch <clone> <branch>:agy/<name>`, never over `main`. This stops accidents, not a worker that deliberately uses the original repo's path. Keep production secrets out of the clone.
-- **Where the choice is stored:** `%USERPROFILE%\.agy-delegate\config.json`, `{"projectTiers": {"<absolute project path>": 2}}`; a missing file or entry means tier 0. Ask the owner once per project and write the file only after an explicit yes. "Tier 2 for this run only" is allowed and writes nothing.
+- **Tier 1** (verified): an exact rule in `--settings` let `node --version` run; the unlisted `node -e ...` was denied. Rules are exact: `*`, `:*` and ` *` wildcards are all denied. Write the file outside the repo, delete it after the run. It never edits the user's config. Whether it adds to or replaces the global allowlist for that run was not tested, so list every command the packet needs.
+- **Tier 2** (open shell verified; containment of an agent NOT verified): on the owner's account (Turbo preset), a launch with no `--mode` ran a file-creating command and a web request with no rule at all, and `--mode auto` is unavailable. So the account is open and the worktree is not a sandbox. Containment recipe, checked with plain git: `git clone --no-hardlinks <repo> <clone-outside-the-repo>`, then `git -C <clone> remote remove origin`. Inside that clone `git push`, `git branch -D main` and `git reset` cannot reach the real repo; bring the work back with `git fetch <clone> <branch>:agy/<name>`, never over `main`. Only plain git was tested. What the clone does NOT stop: an agent with an open shell also has network access and the owner's git credentials, so it can push to the real remote or `cd` into the real repo, and the clone's `.git/logs/HEAD` shows the original path. It prevents accidents, not a determined worker. Say this plainly when asking for the owner's yes. Treat the clone as untrusted: fetch from it, never run its code outside the review. Keep production secrets out of the clone.
+- **Where the choice is stored:** `%USERPROFILE%\.agy-delegate\config.json`, `{"projectTiers": {"<absolute project path>": 2}}`; a missing file or entry means tier 0. Ask the owner once per project and write the file only after an explicit yes. A stored 2 is not a standing grant: at the start of each session in that project, show the stored tier and get a fresh yes before launching a tier-2 worker, because workers can write this file through allowlisted test runs and the file alone must never authorize tier 2. "Tier 2 for this run only" is allowed and writes nothing.
 - If Claude Code's own safety classifier refuses to launch a tier-2 worker, stop and tell the owner; do not work around it. `--dangerously-skip-permissions` stays unused.
 - The Step 3 review is identical at every tier.
 
@@ -93,13 +94,13 @@ Set-Location ..\<repo>-<packet>
 agy -p "Read <packet path> and do it exactly. Do not commit or push. Run only the checks the packet lists, as exact strings." --mode accept-edits --model <model from Step 0b> --print-timeout 30m --log-file ..\agy-<packet>.log 2>&1
 ```
 - Call `agy` directly, never via Start-Process (it splits the prompt on spaces). `2>&1` is required: denials go to stderr only.
-- Run each launch with `run_in_background`; you are notified on exit. Do not poll or sleep. Launch up to 3 packets in one message.
+- Run each launch with `run_in_background`; you are notified on exit. Do not poll or sleep. Launch as many packets in one message as the quota cap allows (at most 3; see `references/orchestration.md`).
 - Follow-up on the same worker: `agy -p "<fix list>" -c ...` (continue latest) or `--conversation <id>` (find it in the log). Max 2 fix rounds, then take over or re-spec.
 
 ## Step 3: judge and review (never trust exit code or the worker's DONE)
 Exit 0 means nothing (timeouts also return exit 0 with partial output).
 1. stderr says `no output produced ... <tool> permission`: a permission was denied (the message names the permission type; look in `--log-file` for the exact command or path, not verified). Handle it with "Scope requests" below; never widen permissions on your own.
-2. `git -C <worktree> status` and `git diff main`: only the allowed files changed? Anything outside the list is rejected.
+2. `git -C <worktree> status` and a diff against the branch the worktree was cut from (`main` for a single packet, `agy/<goal>` in an orchestrated wave; never `main` there, it would show earlier merges): only the allowed files changed? Anything outside the list is rejected.
 3. Run the full test suite yourself in the worktree. Confirm new tests really fail without the change when the packet is about behaviour.
 4. Read the whole diff. Check: frozen tests untouched and not weakened, no unrelated edits, project invariants (e.g. no float money, parameterized queries), security-sensitive paths line by line, no secrets or `.agy-report.md` committed.
 5. Good: stage explicit paths, commit as Claude with the repo's convention. Bad: fix-up round (Step 2) or revert the worktree.
