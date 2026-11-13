@@ -1,18 +1,19 @@
 ---
 name: antigravity-delegate
-description: Delegate well-specified implementation packets (features, views, models, tests, CSS, refactors, docs) to the Antigravity CLI (agy) running headless in isolated git worktrees, check the user's agy quota first, pick the model, run packets in parallel, then review and commit as Claude. Works in any git project. Use when the user says delegate/hand off to agy, Antigravity, Gemini or Flash, or when a plan has several independent implementation tasks.
+description: Delegate well-specified implementation packets (features, views, models, tests, CSS, refactors, docs) to the Antigravity CLI (agy) running headless in isolated git worktrees. First judges whether offloading is worth it (a scored Route step), checks the user's agy quota, picks the model (Gemini 3.8 Flash for mechanical work, Gemini 4 Hydrogen for substantive coding), runs independent tasks in parallel waves into an integration branch, logs outcomes, then reviews and commits as Claude. Works in any git project. Use when the user says delegate/hand off to agy, Antigravity, Gemini, Flash or Hydrogen, asks whether it is worth delegating, wants several tasks run in parallel, or when a plan has several independent implementation tasks.
 ---
 
 # antigravity-delegate: Claude architects and reviews, agy implements
 
-Verified on agy 1.4.6, Windows + PowerShell, 2026-10-23. Re-check `agy --version` / `agy --help` after updates. macOS/Linux flags are the same but untested.
+Verified on agy 1.5.8, Windows + PowerShell, 2026-11-13 (items marked 2026-10-23 were verified on 1.4.6). Re-check `agy --version` / `agy --help` after updates. macOS/Linux flags are the same but untested.
 
 ## Defaults (edit here, everything below follows them)
-- **Workhorse:** `gemini-3.8-flash-high` (high effort on Flash is cheap in practice; change it if your plan differs).
-- **Hard-packet model:** `gemini-4-argon-high` (about Opus 5.5 level, small weekly limit). Only when quota allows (table below) and Flash is likely to flounder.
+- **Mechanical work:** `gemini-3.8-flash-high` (high effort on Flash is cheap in practice; change it if your plan differs).
+- **Substantive coding:** `gemini-4-hydrogen-high` (`gemini-4-hydrogen-medium` for modest tasks). Benchmark B1 (`references/benchmarks.md`): same first-pass results as Flash, 2-4x faster on logic and refactor packets, closer to the spec on the refactor. It draws from the Gemini Models pool (inferred). One run per cell, so provisional; the ledger corrects it.
+- **Hard packets:** `gemini-4-hydrogen-xhigh`; `gemini-4-argon-high` (about Opus 5.5 level, small weekly limit) only when quota allows (table below).
 - **Fallbacks:** `claude-sonnet-5-5-high` / `claude-opus-5-5-high` (Claude/GPT pool). `agy models` lists all ids; listed does not mean you have credits.
 - **ALWAYS pass `--model`.** Omitting it runs Gemini 4 Argon (Medium) and silently burns the scarcest quota. Do not add `--effort` to a model id that already ends in `-high`: agy rejects the pair ("conflicts with --effort"). Use `--effort` only with an id that has no effort suffix.
-- **Parallel packets:** up to 3 at once.
+- **Parallel packets:** up to 3 at once, fewer when the Gemini five-hour quota is low (cap table in `references/orchestration.md`).
 
 ## Be bold: what to delegate
 Rule: **if you can write the acceptance test or the exact diff criteria, delegate it.** Claude is the architect and reviewer; every diff is reviewed before it is committed, in a throwaway worktree, so risk is bounded. Delegate by default: new models/views/forms/templates, CRUD, CSS, test suites, refactors with a clear boundary, doc updates, migrations (review them), and even sensitive code (money, auth, audit) **when Claude writes the invariants and acceptance tests into the packet and reviews every line**.
@@ -31,13 +32,17 @@ Keep with Claude: architecture and design decisions; ambiguous specs (resolve wi
 
 | Situation | Choice |
 |---|---|
-| Gemini pool weekly >= 10% and five-hour >= 10% | `gemini-3.8-flash-high` for ordinary packets |
-| Packet is hard (cross-cutting, subtle invariants, Flash already failed twice) and Argon weekly >= 25% | `gemini-4-argon-high`, one packet at a time |
+| Gemini pool weekly >= 10% and five-hour >= 10% | `gemini-3.8-flash-high` for mechanical packets, `gemini-4-hydrogen-high` for substantive coding |
+| Packet is hard (cross-cutting, subtle invariants, Hydrogen-high already failed once) | `gemini-4-hydrogen-xhigh`; `gemini-4-argon-high` only if Argon weekly >= 25%, one packet at a time |
 | Gemini pool low but Claude/GPT pool >= 20% | `claude-sonnet-5-5-high` |
 | Everything low | do it in Claude, or tell the user the reset time from `/usage` |
 
 Re-run `/usage` between waves of packets and show a one-line update. State the chosen model, and why, next to the start table. Per-packet cost is not reported; measured once: a small Flash-high packet (2 files, 78 s) cost about 1% of the Gemini five-hour limit and 0% of the weekly one. Re-measure for big packets.
 4. **Project profile** (read once per project from AGENTS.md / CLAUDE.md / README): test command and interpreter (e.g. a venv python), env files and DB setup, hard invariants / "never" lists, commit conventions. Put the relevant lines in every packet; the worker does not know them.
+
+## Step 0b: Route (is offloading worth it?)
+Before delegating anything, and whenever the owner gives a multi-part task, score the task with `references/routing.md` (diff size, packet-to-diff ratio, ambiguity, checkability, independence or background fit, sensitivity) and print one line: `Route: <KEEP|DELEGATE|SPLIT> (<model>, <n> workers). Why: <reason>. Est: Claude direct ~<x>k tokens vs delegate ~<y>k.`
+The aim is less Claude usage and less of the owner's time. Under 15 changed lines, or an ambiguous spec, is KEEP: do it directly (or ask). Do not delegate when writing the packet and reading the diff would cost about as much as writing the code. With 5 or more ledger rows for a model, read `scripts/ledger.ps1 -Summary` first and adjust as `routing.md` says. Keep this step to a minute and about ten lines.
 
 ## Permission reality (verified; design around it)
 The default launch is `--mode accept-edits` (tier 0, see "Worker permission tiers" below). Then:
@@ -85,7 +90,7 @@ Per packet (independent packets must have disjoint file sets; dependent ones go 
 git worktree add ..\<repo>-<packet> -b <packet> main
 # copy env files; give each worktree its own DB/test-DB name if the project uses one
 Set-Location ..\<repo>-<packet>
-agy -p "Read <packet path> and do it exactly. Do not commit or push. Run only the checks the packet lists, as exact strings." --mode accept-edits --model gemini-3.8-flash-high --print-timeout 30m --log-file ..\agy-<packet>.log 2>&1
+agy -p "Read <packet path> and do it exactly. Do not commit or push. Run only the checks the packet lists, as exact strings." --mode accept-edits --model <model from Step 0b> --print-timeout 30m --log-file ..\agy-<packet>.log 2>&1
 ```
 - Call `agy` directly, never via Start-Process (it splits the prompt on spaces). `2>&1` is required: denials go to stderr only.
 - Run each launch with `run_in_background`; you are notified on exit. Do not poll or sleep. Launch up to 3 packets in one message.
@@ -99,6 +104,10 @@ Exit 0 means nothing (timeouts also return exit 0 with partial output).
 4. Read the whole diff. Check: frozen tests untouched and not weakened, no unrelated edits, project invariants (e.g. no float money, parameterized queries), security-sensitive paths line by line, no secrets or `.agy-report.md` committed.
 5. Good: stage explicit paths, commit as Claude with the repo's convention. Bad: fix-up round (Step 2) or revert the worktree.
 6. Merge, push and PRs only when the user says so.
+7. Log the outcome so later Route steps use real numbers: `powershell -NoProfile -ExecutionPolicy Bypass -File <this skill's directory>\scripts\ledger.ps1 -Add ...` (fields in `references/orchestration.md`, section 6). No code or prompts go in the ledger.
+
+## Orchestrating several packets
+When the Route step says SPLIT (two or more independent file groups), follow `references/orchestration.md`: a task plan with an overlap check, waves capped by the Gemini five-hour quota, one worktree per task, the Step 3 review for each task, and merges into an integration branch `agy/<goal>`. A native `agy` swarm is not supported today (spike S1 was denied at tier 0); use parallel workers. Merging to main and pushing stay the owner's call.
 
 ## Scope requests: files, folders and commands outside the packet
 Headless `-p` cannot ask a question mid-run, so approval happens between runs: the worker stops (denial) or lists its "Needs" in `.agy-report.md`, then Claude decides whether the need is relevant to the packet and answers it in the cheapest safe way:
@@ -127,6 +136,7 @@ First remove a `.venv` junction with `cmd /c rmdir <worktree>\.venv` (NEVER `Rem
 | `--model ... conflicts with --effort` | model id already has an effort suffix; drop `--effort` |
 | Write outside worktree denied | add `--add-dir <folder>` for that launch if Claude judges it relevant |
 | `install-rules.ps1` blocked by execution policy | call it as `powershell -NoProfile -ExecutionPolicy Bypass -File ...` (per process only) |
+| `/swarm` run ends with a `command` permission denial | swarm lane unsupported at tier 0; use parallel workers |
 
 ## Known unknowns
-R/pnpm/yarn rules and the later-expanded rules (Go, .NET, JVM, Ruby/PHP/make, ruff/mypy/black, extra git/npm/cargo variants); why bare `node --test` is denied; `--mode plan`; `--output-format json` shape; per-packet quota cost; whether plain-text and image reads outside the worktree are also denied (only a PDF is verified); whether `--add-dir` also lifts the shell confinement (no evidence it does); `--sandbox` combined with `--dangerously-skip-permissions`; whether `--input-format stream-json` could carry live approvals; the installer on macOS/Linux (needs PowerShell 7 `pwsh`, untested).
+R/pnpm/yarn rules and the later-expanded rules (Go, .NET, JVM, Ruby/PHP/make, ruff/mypy/black, extra git/npm/cargo variants); why bare `node --test` is denied; `--mode plan`; `--output-format json` shape; per-packet quota cost; whether plain-text and image reads outside the worktree are also denied (only a PDF is verified); whether `--add-dir` also lifts the shell confinement (no evidence it does); `--sandbox` combined with `--dangerously-skip-permissions`; whether `--input-format stream-json` could carry live approvals; the installer on macOS/Linux (needs PowerShell 7 `pwsh`, untested); a swarm at tier 2; whether Hydrogen matches Sonnet 5.5 (the owner's claim, unmeasured) or holds up on large or ambiguous tasks; Hydrogen's per-run quota (under 1% on small packets).

@@ -37,7 +37,7 @@ qpdf "<file.pdf>" --pages . 890-891 -- "<packet>\slice.pdf"
 `qpdf` is installed with `winget install --id QPDF.QPDF -e` (ask the user first; it may not be on PATH in an open shell, check `C:\Program Files\qpdf*\bin`). Never send a text extract of a dose or table page in place of the PDF.
 
 ## Step 4: launch
-From the packet folder (writes are allowed only there). Files outside it need `--add-dir <folder>` on that launch; the slice inside the packet folder does not. Always pass `--model` (see `antigravity-delegate`), no `--effort` with a `-high` id, call `agy` directly with `2>&1`, `--log-file`, run in the background, up to 3 at once.
+From the packet folder (writes are allowed only there). Files outside it need `--add-dir <folder>` on that launch; the slice inside the packet folder does not. Always pass `--model` (`gemini-3.8-flash-high` is the tested reading model; Hydrogen is only benchmarked for coding, see `antigravity-delegate`'s `references/benchmarks.md`), no `--effort` with a `-high` id, call `agy` directly with `2>&1`, `--log-file`, run in the background, up to 3 at once.
 ```powershell
 agy -p $prompt --mode accept-edits --add-dir "<source folder>" --model gemini-3.8-flash-high --print-timeout 20m --log-file "<packet>\agy.log" 2>&1
 ```

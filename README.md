@@ -2,7 +2,7 @@
 
 A [Claude Code](https://claude.com/claude-code) skill that lets Claude act as architect and reviewer while the **Antigravity CLI (`agy`)** does the typing: Claude writes a precise packet, `agy` implements it headless in an isolated git worktree, and Claude reviews the diff, runs the tests and commits.
 
-> Unofficial. Not affiliated with or endorsed by Google or Anthropic. "Antigravity" is Google's product name. Verified on **agy 1.4.6, Windows + PowerShell, 2026-10-23** on a single account; macOS/Linux use the same flags but are untested. Behaviour may change with newer `agy` releases.
+> Unofficial. Not affiliated with or endorsed by Google or Anthropic. "Antigravity" is Google's product name. Verified on **agy 1.5.8, Windows + PowerShell, 2026-11-13** (some older items on 1.4.6) on a single account; macOS/Linux use the same flags but are untested. Behaviour may change with newer `agy` releases.
 
 ## What it does
 - **Checks quota first.** `agy -p "/usage"` is instant and costs no model call; the skill shows your weekly / five-hour limits as a table at the start and a start-to-end report when it finishes, and picks a model (default `gemini-3.8-flash-high`, Argon only for hard packets when its weekly quota allows, Claude models as fallback).
@@ -10,6 +10,13 @@ A [Claude Code](https://claude.com/claude-code) skill that lets Claude act as ar
 - **One git worktree per packet**, up to three in parallel with disjoint file lists.
 - **Packet template** with explicit allowed/forbidden files, tests first, acceptance commands, project rules copied in.
 - **Review gate.** The exit code means nothing; Claude checks stderr, the diff against the allowed-file list, re-runs the tests and reads every line before committing. It never merges or pushes without you.
+
+## New in 0.4: routing, Hydrogen and orchestration
+- **Route step.** Before delegating, Claude scores the task (diff size, packet-to-diff ratio, ambiguity, checkability, fit for the background, sensitivity) and prints one line: KEEP, DELEGATE or SPLIT, with a rough Claude-direct vs delegate token estimate. The aim is less Claude usage and less of your time. Details and eight worked scenarios: [`routing.md`](skills/antigravity-delegate/references/routing.md).
+- **Gemini 4 Hydrogen.** Flash for mechanical work, `gemini-4-hydrogen-high` for substantive coding, Argon only for hard problems when its quota allows. Benchmark B1 ([`benchmarks.md`](skills/antigravity-delegate/references/benchmarks.md)): seven runs, all first-pass, Hydrogen 2-4x faster on the logic and refactor packets and closer to the spec on the refactor. One run per cell on small packets; the claim that it matches Sonnet 5.5 at coding is not measured.
+- **Outcome ledger.** `scripts/ledger.ps1` keeps `~/.agy-delegate/ledger.jsonl` (no code, no prompts) so later Route steps use real first-pass rates, minutes and quota.
+- **Permission tiers.** 0 (default, allowlist), 1 (exact per-run commands through `--settings`, verified), 2 (the account's open shell inside an isolated clone with no remote, only after your yes per project).
+- **Orchestration.** A task plan with an overlap check, waves capped by Gemini five-hour quota (3, 2 or 1 workers), per-task review, merges into an integration branch ([`orchestration.md`](skills/antigravity-delegate/references/orchestration.md)). Dry run: four tasks in two waves, all first-pass, full suite 4/4. A native `agy` swarm was tried headless at tier 0 and denied on the coordinator's first shell call, so that lane is documented as unsupported, with the steps to retry at tier 2.
 
 ## Second skill: `antigravity-digest` (reading, summarising, research)
 For source material instead of code, e.g. a folder of guidelines and drug manuals for a presentation. Gemini Flash does the token-heavy reading; Claude finds the pages, checks the numbers and writes the deliverable.
