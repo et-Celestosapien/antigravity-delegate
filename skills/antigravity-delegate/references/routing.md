@@ -22,10 +22,13 @@ Break-even in words: delegate when (writing the packet + reading the diff + expe
 |---|---|
 | Mechanical: CSS, boilerplate, CRUD, docs, tests from a clear spec | `gemini-3.8-flash-high` |
 | Substantive coding: logic, multi-file features, refactors, test-driven work | `gemini-4-hydrogen-high` (`gemini-4-hydrogen-medium` for modest tasks) |
-| Hard: cross-cutting, subtle invariants, or Hydrogen-high already failed once | `gemini-4-hydrogen-xhigh`; `gemini-4-argon-high` only if its weekly quota is 25% or more, one packet at a time |
+| Hard: cross-cutting, subtle invariants, or Hydrogen-high already failed once | `gemini-4-neon-high` (`gemini-4-neon-xhigh` after one failure; `gemini-4-hydrogen-xhigh` if `agy models` does not list Neon) |
+| Gemini pools low, Argon weekly 25% or more | `gemini-4-argon-high`, one packet at a time (a separate pool, not a quality step-up) |
 | Gemini pools low, Claude/GPT pool 20% or more | `claude-sonnet-5-5-high` through `agy` |
 
-Hydrogen's quota pool is unknown (see `benchmarks.md`). Apply the Gemini quota gate (weekly and five-hour both 10% or more) to it, and after Hydrogen runs read every `/usage` row, not only Gemini, so a different pool cannot drain unseen. Always pass `--model`. Evidence is one run per cell on small packets, so treat the table as the starting point and let the ledger correct it.
+Neon rows rest on published benchmarks, not agy runs (`models.md`, 2026-11-21): Neon-high scores AA 60 vs Hydrogen-xhigh 54 at about the same cost and time per task, and leads the AA Coding Agent Index. Neon-medium (AA 55, about Hydrogen-high's cost) is a candidate for substantive coding once the ledger has rows for it; until then Hydrogen-high stays the default because it has the measured agy evidence. Carbon is not in `agy models`.
+
+Hydrogen's and Neon's quota pools are unknown (see `benchmarks.md`, `models.md`). Apply the Gemini quota gate (weekly and five-hour both 10% or more) to it, and after Hydrogen runs read every `/usage` row, not only Gemini, so a different pool cannot drain unseen. Always pass `--model`. Evidence is one run per cell on small packets, so treat the table as the starting point and let the ledger correct it.
 
 ## 3. Use the ledger
 `scripts/ledger.ps1 -Summary` prints one line per model (tasks, first-pass %, average fix rounds, minutes, quota points). With 5 or more rows for a model, read it before scoring. Adjustment rules (provisional, my calls): first-pass under 60% for a model means require a score of 4 or more for it, or step up one model; first-pass 90% or more over 10+ rows means the 1-2 band may DELEGATE even without parallelism. Say when you applied an adjustment.
